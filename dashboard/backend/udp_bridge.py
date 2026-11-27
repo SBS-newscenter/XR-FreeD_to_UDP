@@ -3,14 +3,18 @@
 import socket
 import threading
 import time
+from datetime import datetime
 
 from . import config, protocol
+from .history import History
 
 
 class UdpBridge(threading.Thread):
-    def __init__(self, state):
+    def __init__(self, state, history: History | None = None):
         super().__init__(daemon=True, name="udp-bridge")
         self.state = state
+        self.history = history
+        self._last_publish = 0.0
         self._stop = threading.Event()
         self._last_targets_refresh = 0.0
         self._targets_for_ip = ""  # which device the cached targets belong to
@@ -30,6 +34,7 @@ class UdpBridge(threading.Thread):
     def run(self):
         sock = self._bind()
         while not self._stop.is_set():
+            self._watch_silence(time.time())
             try:
                 data, addr = sock.recvfrom(8192)
             except TimeoutError:
@@ -46,11 +51,29 @@ class UdpBridge(threading.Thread):
                 line = data.decode("ascii", "replace")
                 parsed = protocol.parse_diag(line)
                 if parsed:
+                    if self.history:
+                        self.history.status(addr[0], line, datetime.now().astimezone())
                     self.state.update_from_diag(parsed, addr[0])
-                    self.state.publish()
+                    self._publish(time.time())
             except Exception:
                 pass  # never let one packet kill the loop
         sock.close()
+
+    def _publish(self, now: float) -> None:
+        self._last_publish = now
+        self.state.publish(now)
+
+    def _watch_silence(self, now: float) -> None:
+        """Log a device that stopped, and keep the open pages told while it is stopped.
+
+        A page repaints only on a published snapshot, and a snapshot used to
+        be published only when a status line arrived: a device that went
+        silent left every open page showing its last numbers as live.
+        """
+        self.state.mark_silent(now)
+        republish_due = now - self._last_publish >= config.SILENT_REPUBLISH_S
+        if republish_due and self.state.signal(now) == "lost":
+            self._publish(now)
 
     def _maybe_refresh_targets(self):
         ip = self.state.device_ip

@@ -1,15 +1,20 @@
-import { status, fpsHistory } from '../stores.js'
+import { status, fpsHistory, connected } from '../stores.js'
 
 export function connect() {
   fetch('/api/status').then(r => r.json()).then(apply).catch(() => {})
   const es = new EventSource('/events')
+  // The browser reconnects a dropped stream by itself; onopen clears the alarm.
+  es.onopen = () => connected.set(true)
+  es.onerror = () => connected.set(false)
   es.onmessage = (e) => apply(JSON.parse(e.data))
   return es
 }
 
 function apply(s) {
   status.set(s)
-  fpsHistory.update(h => [...h.slice(-59), s.fps || 0])
+  // A silent device has no rate: repeating its last one on every snapshot
+  // would draw the flat line of a healthy device.
+  if (s.signal !== 'lost') fpsHistory.update(h => [...h.slice(-59), s.fps || 0])
 }
 
 export async function postCmd(cmd) {

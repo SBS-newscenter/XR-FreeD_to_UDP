@@ -77,6 +77,28 @@ cd dashboard/frontend && npm run dev
 - `POST /api/cmd` `{ "cmd": "target 1 on" }` — relay a control command, returns the reply
 - `GET /health` — `{status, pid, uptime_seconds, device}` (server.toml contract)
 
+## No-signal alarm
+
+The page shows a red band when the selected device's status lines stop for more than
+`DEVICE_LIVE_S` (12 s), with the time of the last line and how long ago it was, and dims
+the panels below it: they hold the last values received, not the present. A second band
+appears when the page loses its own stream from this server. `backend/udp_bridge.py::_watch_silence`
+logs the silence once and republishes every `SILENT_REPUBLISH_S` while it lasts, so a
+page that was already open learns of it.
+
+## History on disk
+
+`backend/history.py::History` appends to two text files per local day under
+`data/history/` (`config.HISTORY_DIR`), one record per line, fields joined by ` | `:
+
+- `events-YYYY-MM-DD.txt` — time, kind, message: the page's event log. Kept, and the
+  newest `LOG_MAXLEN` are loaded back into the page when the service starts.
+- `status-YYYY-MM-DD.txt` — time, device address, the status line as received, for
+  every device heard (about 3 MB a day per device). Files older than `STATUS_KEEP_DAYS`
+  (30) are deleted on the first line of each day.
+
+A write the disk refuses is reported once on stderr and dropped; the bridge keeps running.
+
 ## Device control (CLI)
 
 From any PC on the device LAN:
