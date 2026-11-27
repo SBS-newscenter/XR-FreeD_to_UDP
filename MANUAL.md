@@ -82,6 +82,8 @@ FreeD Serial → UDP Forwarder의 **운영자용** 안내서입니다. 모니터
 | 표시 | 의미 | 정상 기준 |
 |------|------|----------|
 | ● dot | 초록 = 장비 수신 중(LIVE), 빨강 = 12초 이상 무신호 | 초록 |
+| 빨간 띠 NO SIGNAL | 선택한 장비의 상태 수신이 12초 넘게 중단됨. 마지막 수신 시각과 경과 시간 표시, 아래 값은 흐리게 표시되는 마지막 수신값 | 안 보임 |
+| 빨간 띠 DASHBOARD SERVER NOT RESPONDING | 브라우저와 dashboard 서버의 연결이 끊김. 화면 갱신 정지, 자동 재접속 | 안 보임 |
 | Uptime | 장비 가동 시간 — 갑자기 줄면 재부팅 발생 | 계속 증가 |
 | FreeD rate | 실시간 수신 frame rate (장비 시계 기준 정밀 계산) | **59.94** 부근 고정 |
 | DHCP renew | 임대 갱신 성공/실패 누적 | 실패 0 |
@@ -212,7 +214,8 @@ echo "info" | nc -u -w1 <장비-ip> 50998
 ### fail / skip 카운터가 계속 증가할 때
 해당 타겟 장비의 전원·케이블·IP 설정을 확인하세요. badge가 BACKOFF(주황)면 장비 도달 불가 상태입니다. 의도적으로 꺼둔 장비라면 Target을 OFF 하세요.
 
-### Dashboard가 OFFLINE(빨간 dot)일 때
+### Dashboard가 OFFLINE(빨간 dot, NO SIGNAL 띠)일 때
+화면의 값은 마지막으로 수신한 값이며 현재 상태가 아니다. 띠에 표시된 마지막 수신 시각부터 장비가 응답하지 않은 것이다.
 1. 장비 전원/링크 LED 확인
 2. 다른 PC에서 `xrfd_monitor.bat` 실행 — 라인이 보이면 dashboard PC 문제(방화벽/재시작), 안 보이면 장비/네트워크 문제
 3. 장비 LAN 케이블·switch 포트 확인
@@ -221,7 +224,15 @@ echo "info" | nc -u -w1 <장비-ip> 50998
 정전·전원 불안정 또는 watchdog 동작. 시각을 기록해 두고, 잦으면 전원 계통 점검. (설정은 EEPROM에 있어 재부팅 후 자동 복원됩니다)
 
 ### 장비 IP가 바뀌었을 때
-도구들은 12초 내 자동으로 새 IP를 따라갑니다. 조치 불필요.
+`tools/`의 도구는 12초 내에 새 IP를 자동으로 따라간다. 웹 dashboard는 선택한 장비를 유지하므로 상단 device 목록에서 새 IP를 직접 선택해야 한다. 기존 IP는 NO SIGNAL 상태로 목록에 남는다.
+
+### 지난 기록을 확인할 때
+웹 dashboard는 서버의 `data/history/`에 날짜별 파일 두 가지를 남긴다.
+
+- `events-YYYY-MM-DD.txt`: Event log 전체(장비 발견, NO SIGNAL, 복구, 재부팅, 명령). 삭제하지 않음. dashboard 재시작 시 최근 80건을 화면에 다시 표시
+- `status-YYYY-MM-DD.txt`: 장비가 5초마다 보내는 상태 라인 전체. 30일이 지난 파일은 자동 삭제
+
+장비가 응답하지 않은 시각은 events 파일의 `NO SIGNAL` 줄에서, 그 직전의 카운터는 같은 날짜 status 파일의 마지막 줄에서 확인한다.
 
 ---
 
