@@ -137,3 +137,91 @@ def test_device_found_logged_once_per_ip():
         feed(st, f"XRFD up=10 ms=10000 ip={DEV2} rx=5 dhcp=0/0 rtr=Y", src=DEV2)
     found = [e for e in st.snapshot()["log"] if e["m"].startswith("device found")]
     assert len(found) == 1
+
+
+LINE = f"XRFD up=10 ms=10000 ip={DEV} rx=5 dhcp=0/0 rtr=Y"
+T0 = 1_800_000_000.0  # a fixed wall time: these tests read no clock
+
+
+def feed_at(st, now, line=LINE, src=DEV):
+    st.update_from_diag(protocol.parse_diag(line), src, now=now)
+
+
+def silence_logs(st):
+    return [e["m"] for e in st.snapshot()["log"] if e["m"].startswith("NO SIGNAL")]
+
+
+def test_signal_is_none_then_ok_then_lost():
+    # Red when signal() stops reading the registry, or the threshold moves.
+    st = State()
+    assert st.snapshot(T0)["signal"] == "none"
+    feed_at(st, T0)
+    assert st.snapshot(T0 + 12)["signal"] == "ok"
+    assert st.snapshot(T0 + 13)["signal"] == "lost"
+
+
+def test_silence_is_logged_once():
+    # Red when mark_silent forgets which devices it has already logged: the
+    # bridge calls it twice a second and the log would fill with one line.
+    st = State()
+    feed_at(st, T0)
+    st.mark_silent(T0 + 12)
+    assert silence_logs(st) == []
+    st.mark_silent(T0 + 13)
+    st.mark_silent(T0 + 60)
+    assert len(silence_logs(st)) == 1 and DEV in silence_logs(st)[0]
+
+
+def test_return_after_silence_is_logged_and_rearms_the_alarm():
+    # Red when a returning device is not taken out of the silent set: its
+    # second silence would then pass unlogged.
+    st = State()
+    feed_at(st, T0)
+    st.mark_silent(T0 + 13)
+    feed_at(st, T0 + 100)
+    assert any(e["m"].startswith("signal restored") for e in st.snapshot()["log"])
+    assert st.snapshot(T0 + 100)["signal"] == "ok"
+    st.mark_silent(T0 + 113)
+    assert len(silence_logs(st)) == 2
+
+
+def test_snapshot_says_when_the_selected_device_was_last_heard():
+    # Red when lastSeen or silentSec leave the snapshot: the page's alarm
+    # would have nothing to print.
+    st = State()
+    feed_at(st, T0)
+    snap = st.snapshot(T0 + 300)
+    assert snap["silentSec"] == 300
+    datetime.strptime(snap["lastSeen"], "%Y-%m-%d %H:%M:%S")
+    datetime.strptime(snap["listeningSince"], "%Y-%m-%d %H:%M:%S")
+
+
+def test_a_long_silence_keeps_its_real_age():
+    # Red when the age is capped again: at 999999 s a device silent for
+    # twenty days read the same as one never heard.
+    st = State()
+    feed_at(st, T0)
+    twenty_days = 20 * 86400
+    snap = st.snapshot(T0 + twenty_days)
+    assert snap["ageSec"] == twenty_days
+    assert snap["devices"][0]["ageSec"] == twenty_days
+
+
+def test_switching_to_a_live_device_raises_no_alarm():
+    # Red when signal() reads last_seen, which a switch clears until the
+    # next line: the page would flash NO SIGNAL on every switch.
+    st = State()
+    feed_at(st, T0)
+    feed_at(st, T0, src=DEV2)
+    st.select_device(DEV2)
+    assert st.snapshot(T0 + 1)["signal"] == "ok"
+
+
+def test_log_is_written_to_history_and_read_back_on_start(tmp_path):
+    # Red when add_log stops handing events to the history, or a new State
+    # stops loading them: a restart would open with an empty event log.
+    from backend.history import History
+
+    State(History(tmp_path, keep_days=30)).add_log("warn", "before the restart")
+    restarted = State(History(tmp_path, keep_days=30))
+    assert [e["m"] for e in restarted.snapshot()["log"]] == ["before the restart"]
