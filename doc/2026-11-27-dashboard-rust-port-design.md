@@ -48,11 +48,13 @@ of a hundred crates to build and audit, and a second way of writing every
 function that waits, for a load this service does not have. Open event
 streams are capped at 32; the next one is refused with 503.
 
-**D4. The dependencies are five.** `tiny_http` for HTTP, `serde` and
+**D4. The dependencies are six.** `tiny_http` for HTTP, `serde` and
 `serde_json` for the snapshot, `signal-hook` for a clean stop, `chrono` for
-local time in the history files and the event log. The standard library
-covers UDP, threads, locks and files. `Cargo.lock` is committed and the build
-is `cargo build --release --locked`.
+local time in the history files and the event log, and `socket2` to set
+`SO_REUSEPORT` on the status port before it is bound, which the standard
+library's `UdpSocket` cannot do and D7 needs. The standard library covers the
+rest of UDP, threads, locks and files. `Cargo.lock` is committed and the
+build is `cargo build --release --locked`.
 
 **D5. One crate, under `dashboard/server/`.** A library with the modules the
 Python package has (`protocol`, `state`, `history`, `bridge`, `http`) and a
