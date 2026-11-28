@@ -116,11 +116,13 @@ def _lan_ips():
 def main():
     from waitress import serve
 
+    from .history import History
     from .state import State
     from .udp_bridge import UdpBridge
 
-    state = State()
-    bridge = UdpBridge(state)
+    history = History(config.HISTORY_DIR, config.STATUS_KEEP_DAYS)
+    state = State(history)
+    bridge = UdpBridge(state, history)
     bridge.start()
     state.add_log("info", "dashboard started")
     _write_pidfile()

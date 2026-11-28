@@ -156,3 +156,71 @@ def test_stale_targets_reply_discarded_after_switch_during_send(monkeypatch):
 
     br._maybe_refresh_targets()  # polls for .123; switch happens mid-call
     assert st.snapshot()["targets"] == []  # stale reply discarded, not stored
+
+
+T0 = 1_800_000_000.0  # a fixed wall time: the silence tests read no clock
+
+
+def heard_at_t0():
+    from backend import protocol
+
+    st = State()
+    st.update_from_diag(protocol.parse_diag(DEV_LINE.decode()), "10.10.204.87", now=T0)
+    return st, UdpBridge(st)
+
+
+def test_open_pages_are_told_when_the_device_falls_silent():
+    # Red when _watch_silence stops publishing: an open page then keeps the
+    # last snapshot it was sent, the one that said "ok".
+    st, br = heard_at_t0()
+    q = st.subscribe()
+    br._watch_silence(T0 + 12)
+    assert q.empty()
+    br._watch_silence(T0 + 13)
+    assert q.get_nowait()["signal"] == "lost"
+
+
+def test_silent_device_is_republished_on_the_interval_only():
+    # Red when the republish goes (the page's "silent for" freezes), or when
+    # it loses its interval (two snapshots a second to every page).
+    st, br = heard_at_t0()
+    br._watch_silence(T0 + 13)
+    q = st.subscribe()
+    br._watch_silence(T0 + 13 + config.SILENT_REPUBLISH_S - 1)
+    assert q.empty()
+    br._watch_silence(T0 + 13 + config.SILENT_REPUBLISH_S)
+    assert q.get_nowait()["silentSec"] == 13 + config.SILENT_REPUBLISH_S
+
+
+def test_heard_device_is_not_republished():
+    # Red when the republish stops asking whether the device is silent: every
+    # extra snapshot adds a point to the page's rate chart.
+    st, br = heard_at_t0()
+    q = st.subscribe()
+    br._watch_silence(T0 + config.SILENT_REPUBLISH_S + 1)
+    assert q.empty()
+
+
+def test_bridge_records_each_status_line(monkeypatch):
+    # Red when run() stops handing parsed lines to the history.
+    class Recorder:
+        def __init__(self):
+            self.lines = []
+
+        def status(self, device_ip, line, when):
+            self.lines.append((device_ip, line))
+
+    monkeypatch.setattr(config, "DIAG_PORT", 55997)
+    recorder = Recorder()
+    bridge = UdpBridge(State(), recorder)
+    bridge.start()
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        for _ in range(20):
+            s.sendto(DEV_LINE, ("127.0.0.1", 55997))
+            if recorder.lines:
+                break
+            time.sleep(0.1)
+        assert recorder.lines[0] == ("127.0.0.1", DEV_LINE.decode())
+    finally:
+        bridge.stop()

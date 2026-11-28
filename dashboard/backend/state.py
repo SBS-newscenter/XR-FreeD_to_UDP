@@ -6,14 +6,24 @@ from collections import deque
 from datetime import datetime
 
 from . import config
+from .history import History
+
+_CLOCK_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+def _clock(epoch: float) -> str:
+    return datetime.fromtimestamp(epoch).strftime(_CLOCK_FORMAT)
 
 
 class State:
-    def __init__(self):
+    def __init__(self, history: History | None = None):
         self._lock = threading.RLock()
+        self._history = history
+        self._started = time.time()
         self.device_ip = ""  # currently *selected* device (detail below is its)
         self.last_seen = 0.0  # wall time (time.time()) of last diag
         self._devices = {}  # ip -> wall time of that device's last diag
+        self._silent = set()  # ips whose silence has been logged, until they return
         self.up = 0
         self.rx = 0
         self.fps = 0.0
@@ -24,26 +34,33 @@ class State:
         self.diag_state = {}  # "0" -> {state,ok,fail,skip}
         self.targets = []  # [{n,on,ip,port}]
         self._log = deque(maxlen=config.LOG_MAXLEN)
+        if history:
+            self._log.extend(history.recent_events(config.LOG_MAXLEN))
         self._prev_rx = -1
         self._prev_ms = -1
         self._prev_time = None
         self._subscribers = set()
 
     def add_log(self, kind, msg):
+        when = datetime.now().astimezone()
         with self._lock:
-            self._log.appendleft(
-                {"t": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "k": kind, "m": msg}
-            )
+            self._log.appendleft({"t": when.strftime(_CLOCK_FORMAT), "k": kind, "m": msg})
+            if self._history:
+                self._history.event(kind, msg, when)
 
-    def update_from_diag(self, parsed, src_ip):
+    def update_from_diag(self, parsed, src_ip, now: float | None = None):
         if parsed is None:
             return
-        now = time.time()
+        now = time.time() if now is None else now
         with self._lock:
             # Every device that broadcasts stays in the registry so the UI can
             # offer it; only the selected one drives the detail fields below.
             if src_ip not in self._devices:
                 self.add_log("info", f"device found: {src_ip}")
+            elif src_ip in self._silent:
+                self._silent.discard(src_ip)
+                since = _clock(self._devices[src_ip])
+                self.add_log("info", f"signal restored: {src_ip} (silent since {since})")
             self._devices[src_ip] = now
 
             if not self.device_ip:
@@ -81,6 +98,33 @@ class State:
 
             self.diag_state = parsed["targets"]
 
+    def mark_silent(self, now: float | None = None) -> None:
+        """Log each device whose status lines have stopped, once per silence."""
+        now = time.time() if now is None else now
+        with self._lock:
+            newly_silent = [
+                ip
+                for ip, seen in self._devices.items()
+                if now - seen > config.DEVICE_LIVE_S and ip not in self._silent
+            ]
+            for ip in newly_silent:
+                self._silent.add(ip)
+                self.add_log("warn", f"NO SIGNAL: {ip} (last status {_clock(self._devices[ip])})")
+
+    def signal(self, now: float | None = None) -> str:
+        """Whether the selected device is being heard: "ok", "lost" or "none".
+
+        Read from the registry, not from `last_seen`, which a switch of device
+        clears until that device's next line: a live device just switched to
+        is "ok", never "lost".
+        """
+        now = time.time() if now is None else now
+        with self._lock:
+            if self.device_ip not in self._devices:
+                return "none"
+            heard = now - self._devices[self.device_ip] <= config.DEVICE_LIVE_S
+            return "ok" if heard else "lost"
+
     def select_device(self, ip):
         """Point the dashboard at a different discovered device.
 
@@ -110,17 +154,17 @@ class State:
             self.add_log("info", f"switched to {ip}")
             return True
 
-    def snapshot(self):
+    def snapshot(self, now: float | None = None):
+        now = time.time() if now is None else now
         with self._lock:
-            now = time.time()
-            if self.last_seen:
-                age = int(min(999999, now - self.last_seen))
-            else:
-                age = 999999
+            # 999999 stands for "never heard"; a real age is not capped, or a
+            # device silent for twelve days reads the same as one never seen.
+            age = int(now - self.last_seen) if self.last_seen else 999999
+            selected_seen = self._devices.get(self.device_ip, 0.0)
             devices = [
                 {
                     "ip": ip,
-                    "ageSec": int(min(999999, now - seen)),
+                    "ageSec": int(now - seen),
                     "live": (now - seen) <= config.DEVICE_LIVE_S,
                 }
                 for ip, seen in sorted(self._devices.items())
@@ -146,6 +190,10 @@ class State:
                 "devices": devices,
                 "ageSec": age,
                 "live": bool(self.device_ip) and age <= config.DEVICE_LIVE_S,
+                "signal": self.signal(now),
+                "lastSeen": _clock(selected_seen) if selected_seen else "",
+                "silentSec": int(now - selected_seen) if selected_seen else 0,
+                "listeningSince": _clock(self._started),
                 "up": self.up,
                 "rx": self.rx,
                 "fps": self.fps,
@@ -169,8 +217,8 @@ class State:
         with self._lock:
             self._subscribers.discard(q)
 
-    def publish(self):
-        snap = self.snapshot()
+    def publish(self, now: float | None = None):
+        snap = self.snapshot(now)
         with self._lock:
             subs = list(self._subscribers)
         for q in subs:

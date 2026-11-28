@@ -13,6 +13,8 @@ ts5-server, /opt/xr-freed-to-udp                 browsers on the office LAN
 │   app.py routes      udp_bridge.py the one   │   SSE live updates
 │   state.py           UDP thread              │
 │   protocol.py        the device's messages   │
+│   history.py         events and status lines │
+│                      on disk, data/history/  │
 │   lifecycle.py, access_log.py, config.py     │
 │ dashboard/frontend/  Svelte + Vite, built to │
 │                      dist/ by install.sh     │

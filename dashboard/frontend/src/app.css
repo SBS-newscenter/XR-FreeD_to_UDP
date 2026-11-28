@@ -9,6 +9,11 @@ h1{font-size:18px;color:var(--accent);display:flex;align-items:center;gap:10px;m
 .dot.dead{background:var(--bad);box-shadow:0 0 8px var(--bad)}
 .dev{color:var(--muted);font-size:13px;font-weight:400;margin-left:auto}
 .btn-theme{width:36px;height:30px;border:none;border-radius:8px;background:var(--btn);color:var(--fg);font-size:16px;cursor:pointer}
+.alarm{background:var(--bad);color:var(--badtext);border-radius:10px;padding:12px 16px;margin-bottom:12px;font-size:14px;font-weight:600}
+.alarm b{display:block;font-size:19px;letter-spacing:.5px;margin-bottom:2px}
+.alarm.waiting{background:var(--panel);color:var(--fg);border:1px solid var(--warn)}
+.alarm.waiting b{color:var(--warn)}
+.stale{opacity:.4}
 .bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .chip{background:var(--panel);border-radius:8px;padding:8px 14px;font-size:13px;border:1px solid var(--border)}
 .chip b{color:var(--accent);font-size:16px;display:block}
