@@ -12,6 +12,8 @@
 #   lint, format, exec-bits, hooks   the scripts and the hook cases
 #   dashboard    dashboard/: uv sync --frozen, ruff format and check, pytest
 #   frontend     dashboard/frontend/: npm ci, npm run build
+#   server       dashboard/server/: cargo fmt --check, clippy with warnings
+#                denied, cargo test, each on the versions Cargo.lock pins
 #   firmware     pio test -e native (the pure logic on the host), then
 #                pio run -e uno_r4_wifi (the board build; no upload)
 #
@@ -45,6 +47,9 @@ echo "dashboard"
 
 echo "frontend"
 (cd dashboard/frontend && npm ci --silent && npm run build --silent)
+
+echo "server"
+(cd dashboard/server && cargo fmt --check && cargo clippy --quiet --locked --all-targets -- -D warnings && cargo test --quiet --locked)
 
 echo "firmware: native tests"
 pio test -e native

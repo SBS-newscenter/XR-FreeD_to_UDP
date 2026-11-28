@@ -152,3 +152,20 @@ its reason beside it, never file-wide.
 - `dashboard/setup/run.sh` is the one entry point for systemd, server-manager
   and a hand start; `install.sh` is `uv sync` plus the frontend build, and
   is what server-manager's update calls.
+
+## 11. Rust
+
+- `cargo` owns the build: `Cargo.toml` names the dependencies, `Cargo.lock`
+  is committed, and the check and the server build with `--locked`.
+  `rust-version` is the floor, the toolchain of the host that builds it.
+- `cargo fmt` is the style and `cargo clippy -- -D warnings` is clean (the
+  check); a lint is allowed on the one item with `#[allow(clippy::<lint>)]`
+  and its reason beside it, never for the crate.
+- A dependency is added for what the standard library cannot do, and its
+  line in `Cargo.toml` says what that is.
+- No `unsafe`, and no `unwrap` or `expect` outside tests: a value that may
+  be absent and a call that may fail are handled where they are met, or
+  returned to the caller that can.
+- What reads the clock, the disk or the network takes it as a parameter
+  where a test must stand in for it; a module's tests sit in it, under
+  `#[cfg(test)]`.

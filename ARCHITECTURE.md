@@ -27,6 +27,7 @@ ts5-server, /opt/xr-freed-to-udp                 browsers on the office LAN
 | `test/` | the native unit tests (`unity`) | the host, the runner | `include/` |
 | `platformio.ini` | the board, debug and native environments | — | — |
 | `dashboard/backend/` | the bridge and the page's server, its tests under `tests/` | ts5-server | flask, waitress |
+| `dashboard/server/` | the backend's Rust crate, not yet what runs: the device's messages, the disk history | the check | chrono, serde |
 | `dashboard/frontend/` | the Svelte page, built to `dist/` | the build step | svelte, vite |
 | `dashboard/setup/` | `run.sh`, `install.sh`, `firewall.sh`, the unit; the `.ps1` fallbacks | ts5-server (the Windows PC as fallback) | uv, npm |
 | `tools/` | operator aids: control, monitor, send, firewall, in `.sh`, `.bat`, `.ps1` | the operator's PC | — |
