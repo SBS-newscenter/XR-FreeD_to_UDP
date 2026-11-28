@@ -10,13 +10,20 @@ publish = false
 name = "xrfd_dashboard"
 path = "src/lib.rs"
 
+[[bin]]
+name = "xrfd-dashboard"
+path = "src/main.rs"
+
 [dependencies]
 # Local time for the history files and the event log: std has no time zone.
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# SIGTERM and SIGINT as a flag the threads poll.
+signal-hook = { version = "0.4", default-features = false }
 # SO_REUSEPORT before bind, which std's UdpSocket cannot set.
 socket2 = { version = "0.6", features = ["all"] }
+tiny_http = "0.12"
 
 [profile.release]
 opt-level = 3
