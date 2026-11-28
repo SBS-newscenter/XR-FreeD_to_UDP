@@ -65,26 +65,29 @@ passed in as they are now. The check gains `cargo fmt --check`, `cargo clippy
 -- -D warnings` and `cargo test`, and loses the Python gates when the Python
 backend leaves.
 
-**D7. The two run side by side before the switch.** The Rust binary is
-started by hand on ts5-server on port 10001. Both backends bind UDP 50999
-with `SO_REUSEPORT`, and a broadcast is delivered to every socket bound to
-it, so both hear the device. Their `/api/status` and their history files are
-compared over a period the operator names. The Rust binary sends no command
-to the device in that period, the `targets` query aside.
+**D7. The two run side by side for one broadcast day, the Rust binary as the
+service.** The Rust binary is the service on port 10000, the one viewers
+open. The Python backend runs beside it on port 9999 for that day, started by
+hand from the same checkout, as the reference. Port 10001 is taken on
+ts5-server by the file share. Both backends bind UDP 50999 with
+`SO_REUSEPORT`, and a broadcast is delivered to every socket bound to it, so
+both hear the device. The Python backend takes its port and its history
+directory from its start command for that day, so the two write separate
+files. At the end of the day their `/api/status` and their history files are
+compared.
 
-**D8. The switch is one pull request.** `dashboard/setup/run.sh` starts the
-binary, `install.sh` builds it and the page, and `dashboard/backend/`, its
-tests, `pyproject.toml` and `uv.lock` are removed in the same change, so the
-tree never holds two backends that a deploy could start. server-manager's
-update on ts5-server then builds and restarts it as it does now.
+**D8. The switch and the removal are two pull requests.** The first makes
+`dashboard/setup/run.sh` start the binary and `install.sh` build it and the
+page, adds the Rust gates to the check, and leaves the Python backend in the
+tree, startable on port 9999. server-manager's update on ts5-server then
+builds and restarts the service as it does now. The second, after the day of
+D7, removes `dashboard/backend/`, its tests, `pyproject.toml`, `uv.lock`, the
+Python gates of the check, and the scripts of D9.
 
-## Open questions
-
-**Q1. The Windows fallback.** `dashboard/setup/install.ps1` and `run.ps1`
-install and start the Python backend on a Windows PC. With the Python
-backend gone they need a Rust toolchain on that PC, or they are removed and
-`tools/xrfd_dashboard.ps1` remains the one Windows fallback. The second is
-proposed.
-
-**Q2. The length of the side-by-side run in D7.** One broadcast day is
-proposed.
+**D9. The Windows setup scripts go.** `dashboard/setup/install.ps1`,
+`run.ps1` and `firewall.ps1` install and start the Python backend on a
+Windows PC, and are removed with it. A Windows PC that has to host the
+dashboard runs the Linux scripts under WSL2. That route is not tried: the
+device's status arrives as a LAN broadcast, which WSL2 passes to its guest
+only in its mirrored networking mode. `tools/xrfd_dashboard.ps1` stays as the
+single-file fallback.
