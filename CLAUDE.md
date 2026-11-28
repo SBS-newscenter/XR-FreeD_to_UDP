@@ -164,8 +164,9 @@ route around them.
   `templates/settings.local.example.json`).
 - **Each worktree builds where its part builds**: `pio test -e native` and
   `pio run` in the worktree (`uv tool install platformio` put `pio` on this
-  box), `uv run pytest -q` under `dashboard/`, `npm run build` under
-  `dashboard/frontend/`; the check on the pull request is the verdict.
+  box), `cargo test` under `dashboard/server/`, `uv run pytest -q` under
+  `dashboard/`, `npm run build` under `dashboard/frontend/`; the check on
+  the pull request is the verdict.
 - **The boards** are Arduino UNO R4 WiFi units in the studio, on the
   devices' LAN, each reading a camera's FreeD stream over RS-422 and sending
   UDP. **They are on air.** A build goes to a board only by the operator's

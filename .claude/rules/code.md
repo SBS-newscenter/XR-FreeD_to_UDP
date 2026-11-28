@@ -145,13 +145,14 @@ its reason beside it, never file-wide.
   defect, not a default.
 - Pure logic lives in `include/` and is tested with `pio test -e native`;
   what needs the board is tried on a board by the operator.
-- The dashboard's backend reaches the device over UDP from one thread
-  (`udp_bridge.py`) and serves the page with SSE; a route never touches the
-  socket directly. Python: `dashboard/pyproject.toml` pins the ruff rule
-  set; the harness Python is excluded there.
+- The dashboard's backend hears the device over UDP from one thread
+  (`dashboard/server/src/bridge.rs`) and serves the page with SSE; a route
+  never touches the status socket, and asks a device only through `Ask`.
+  Python: `dashboard/pyproject.toml` pins the ruff rule set; the harness
+  Python is excluded there.
 - `dashboard/setup/run.sh` is the one entry point for systemd, server-manager
-  and a hand start; `install.sh` is `uv sync` plus the frontend build, and
-  is what server-manager's update calls.
+  and a hand start; `install.sh` is the binary's build, `uv sync` and the
+  frontend build, and is what server-manager's update calls.
 
 ## 11. Rust
 
