@@ -1,5 +1,6 @@
 """Flask app factory + waitress entrypoint for the XRFD dashboard."""
 
+import argparse
 import json
 import os
 import queue
@@ -7,6 +8,7 @@ import signal
 import socket
 import sys
 import time
+from pathlib import Path
 
 from flask import Flask, Response, jsonify, request, send_from_directory
 
@@ -113,25 +115,43 @@ def _lan_ips():
     return sorted(ips)
 
 
-def main():
+def parse_args(argv: list[str] | None) -> argparse.Namespace:
+    """The arguments of a reference instance: one run by hand beside the
+    service to compare the two. It takes a port and a history directory of
+    its own, and leaves the service's pidfile and lifecycle log alone. With
+    no argument this is the service itself, as the Windows scripts start it.
+    """
+    parser = argparse.ArgumentParser(prog="python -m backend.app")
+    parser.add_argument("--port", type=int, help="serve the page here, as a reference instance")
+    parser.add_argument("--history-dir", type=Path, help="the reference instance's own history")
+    args = parser.parse_args(argv)
+    if (args.port is None) != (args.history_dir is None):
+        parser.error("--port and --history-dir are given together")
+    return args
+
+
+def main(argv: list[str] | None = None):
     from waitress import serve
 
     from .history import History
     from .state import State
     from .udp_bridge import UdpBridge
 
-    history = History(config.HISTORY_DIR, config.STATUS_KEEP_DAYS)
+    args = parse_args(argv)
+    is_service = args.port is None
+    history = History(args.history_dir or config.HISTORY_DIR, config.STATUS_KEEP_DAYS)
     state = State(history)
     bridge = UdpBridge(state, history)
     bridge.start()
     state.add_log("info", "dashboard started")
-    _write_pidfile()
     _log_dir = config.REPO_ROOT / "log"
-    lifecycle.append(
-        _log_dir, "xr-freed-to-udp", "STARTED", f"version={__version__} pid={os.getpid()}"
-    )
+    if is_service:
+        _write_pidfile()
+        lifecycle.append(
+            _log_dir, "xr-freed-to-udp", "STARTED", f"version={__version__} pid={os.getpid()}"
+        )
     app = create_app(state, bridge)
-    port = config.WEB_PORT
+    port = args.port or config.WEB_PORT
     # 0.0.0.0 = bind on all interfaces; browse via one of these reachable URLs:
     print(f"XRFD dashboard running (waitress, listening on 0.0.0.0:{port}):", flush=True)
     print(f"  local:   http://localhost:{port}", flush=True)
@@ -145,8 +165,9 @@ def main():
         serve(AccessLog(app), host="0.0.0.0", port=port, threads=8)
     finally:
         bridge.stop()
-        config.PIDFILE.unlink(missing_ok=True)
-        lifecycle.append(_log_dir, "xr-freed-to-udp", "STOPPED", f"pid={os.getpid()}")
+        if is_service:
+            config.PIDFILE.unlink(missing_ok=True)
+            lifecycle.append(_log_dir, "xr-freed-to-udp", "STOPPED", f"pid={os.getpid()}")
 
 
 if __name__ == "__main__":
