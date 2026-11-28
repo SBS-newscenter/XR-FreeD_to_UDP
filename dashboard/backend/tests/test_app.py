@@ -106,3 +106,27 @@ def test_status_lists_discovered_devices(app_and_state):
     devices = app.test_client().get("/api/status").get_json()["devices"]
     assert [d["ip"] for d in devices] == ["10.10.204.123"]
     assert devices[0]["live"] is True
+
+
+def test_no_argument_is_the_service():
+    # Red when a start with no argument stops being the service: the Windows
+    # scripts start it that way.
+    from backend.app import parse_args
+
+    args = parse_args([])
+    assert args.port is None and args.history_dir is None
+
+
+def test_reference_instance_takes_its_port_and_history_together(tmp_path):
+    # Red when a reference instance can be started on its own port while
+    # writing into the service's history files.
+    import pytest
+
+    from backend.app import parse_args
+
+    args = parse_args(["--port", "9999", "--history-dir", str(tmp_path)])
+    assert (args.port, args.history_dir) == (9999, tmp_path)
+    with pytest.raises(SystemExit):
+        parse_args(["--port", "9999"])
+    with pytest.raises(SystemExit):
+        parse_args(["--history-dir", str(tmp_path)])

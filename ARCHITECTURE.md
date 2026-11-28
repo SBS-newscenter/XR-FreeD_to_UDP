@@ -9,13 +9,13 @@ camera ──RS-422 FreeD──► UNO R4 WiFi (src/main.cpp)        ──UDP�
                               ▼
 ts5-server, /opt/xr-freed-to-udp                 browsers on the office LAN
 ┌─────────────────────────────────────────────┐          │
-│ dashboard/backend/   Flask + waitress        │◄─────────┘ http://ts5:10000
-│   app.py routes      udp_bridge.py the one   │   SSE live updates
-│   state.py           UDP thread              │
-│   protocol.py        the device's messages   │
-│   history.py         events and status lines │
+│ dashboard/server/    xrfd-dashboard (Rust)   │◄─────────┘ http://ts5:10000
+│   http.rs routes     bridge.rs the one       │   SSE live updates
+│   state.rs           UDP thread              │
+│   protocol.rs        the device's messages   │
+│   history.rs         events and status lines │
 │                      on disk, data/history/  │
-│   lifecycle.py, access_log.py, config.py     │
+│   service.rs, clock.rs, main.rs              │
 │ dashboard/frontend/  Svelte + Vite, built to │
 │                      dist/ by install.sh     │
 └─────────────────────────────────────────────┘
@@ -26,9 +26,9 @@ ts5-server, /opt/xr-freed-to-udp                 browsers on the office LAN
 | `src/`, `include/`, `lib/` | the firmware; `include/` the pure logic | the UNO R4 WiFi | PlatformIO, `renesas-ra`, Ethernet 2.0.2 |
 | `test/` | the native unit tests (`unity`) | the host, the runner | `include/` |
 | `platformio.ini` | the board, debug and native environments | — | — |
-| `dashboard/backend/` | the bridge and the page's server, its tests under `tests/` | ts5-server | flask, waitress |
-| `dashboard/server/` | the backend as a Rust binary, `xrfd-dashboard`, built and tested but not yet what `run.sh` starts | the check | chrono, serde, signal-hook, socket2, tiny_http |
-| `dashboard/frontend/` | the Svelte page, built to `dist/` | the build step | svelte, vite |
+| `dashboard/backend/` | the Python backend the binary replaces: a reference beside it, and what the Windows scripts start | by hand (the Windows PC as fallback) | flask, waitress |
+| `dashboard/server/` | the backend: the binary `xrfd-dashboard`, the bridge and the page's server, its tests in each module | ts5-server | chrono, serde, signal-hook, socket2, tiny_http |
+| `dashboard/frontend/` | the Svelte page, built to `dist/`, which the binary serves | the build step | svelte, vite |
 | `dashboard/setup/` | `run.sh`, `install.sh`, `firewall.sh`, the unit; the `.ps1` fallbacks | ts5-server (the Windows PC as fallback) | uv, npm |
 | `tools/` | operator aids: control, monitor, send, firewall, in `.sh`, `.bat`, `.ps1` | the operator's PC | — |
 | `Example/` | the FreeD sample scripts | — | — |

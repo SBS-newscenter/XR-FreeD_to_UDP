@@ -6,7 +6,7 @@ post_install = "bash dashboard/setup/install.sh"
 [[service]]
 name = "xr-freed-to-udp"
 type = "web"
-description = "XR FreeD→UDP 장비 브릿지 대시보드 (Python/Flask+waitress + Svelte/Vite)"
+description = "XR FreeD→UDP 장비 브릿지 대시보드 (Rust + Svelte/Vite)"
 command = "bash dashboard/setup/run.sh"
 host = "0.0.0.0"           # LAN 브라우저 접근 필요(방화벽으로 제어)
 port = 10000
