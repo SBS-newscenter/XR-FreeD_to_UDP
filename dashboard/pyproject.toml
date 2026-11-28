@@ -1,6 +1,6 @@
 [project]
 name = "xr-freed-dashboard"
-version = "0.1.0"
+version = "0.2.0"
 description = "XR FreeD→UDP 장비 브릿지 대시보드 backend (Flask + waitress + UDP bridge)"
 readme = "README.md"
 requires-python = ">=3.14"
