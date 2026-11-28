@@ -7,7 +7,7 @@
 #   3) sudo systemctl daemon-reload && sudo systemctl enable --now xr-freed-to-udp
 # ExecStart calls run.sh (the SSOT) so launch logic lives in exactly one place.
 [Unit]
-Description=XR FreeD->UDP dashboard (Flask+waitress + Svelte)
+Description=XR FreeD->UDP dashboard (Rust + Svelte)
 After=network-online.target
 Wants=network-online.target
 
