@@ -1,10 +1,12 @@
 //! The XRFD dashboard's backend, as a library the service's binary is built
 //! on. So far: the device's two messages (`protocol`), the disk history
-//! (`history`) and the clock both are stamped with (`clock`).
+//! (`history`), what the dashboard knows and sends the page (`state`), and
+//! the clock they are stamped with (`clock`).
 
 pub mod clock;
 pub mod history;
 pub mod protocol;
+pub mod state;
 
 /// UDP port the device answers control commands on.
 pub const CTRL_PORT: u16 = 50998;
