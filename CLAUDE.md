@@ -40,7 +40,9 @@ over. Beside this file a session reads:
   lockfile, type hints, `pytest` fixtures, and what each ruff finding guards;
   the web client: `npm` scripts and the build, the DOM and `fetch`, the page's
   state; bash: `set -euo pipefail`, quoting and arrays, `trap`, and what each
-  shellcheck finding guards.
+  shellcheck finding guards; Rust: ownership and borrowing, `Option` and
+  `Result`, a `match` that must cover every case, `Arc` and `Mutex` between
+  threads, `cargo`'s lockfile, and what each clippy finding guards.
 - **The firmware's `README.md` design notes and `MANUAL.md`** state what
   the device does on the wire and on the serial console; the dashboard's
   `dashboard/README.md` the same for the bridge. A document cites a function
@@ -61,6 +63,8 @@ route around them.
 7. **`npm ci` and `npm run build` are clean** in the check every change takes before it merges.
 8. **A change to the page is tried in a browser before it merges**, and the pull request says so.
 9. **`package-lock.json` moves only with a dependency change** that names its reason.
+10. **`cargo fmt --check` changes nothing, `cargo clippy` passes with warnings denied and `cargo test` passes** in the check every change takes before it merges, on the versions `Cargo.lock` pins.
+11. **A clippy lint is allowed on the one item, with its reason beside it** (`#[allow(clippy::<lint>)]`), never for the crate.
 
 ## Git
 
