@@ -1,8 +1,10 @@
 //! The XRFD dashboard's backend, as a library the service's binary is built
 //! on. So far: the device's two messages (`protocol`), the disk history
-//! (`history`), what the dashboard knows and sends the page (`state`), and
-//! the clock they are stamped with (`clock`).
+//! (`history`), what the dashboard knows and sends the page (`state`), the
+//! thread that hears the device and asks it (`bridge`), and the clock they
+//! are stamped with (`clock`).
 
+pub mod bridge;
 pub mod clock;
 pub mod history;
 pub mod protocol;
